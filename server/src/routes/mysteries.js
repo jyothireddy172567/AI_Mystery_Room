@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
+import * as controller from '../controllers/mysteries.js';
+import { asyncRoute } from '../middleware/asyncRoute.js';
+const router=Router();
+const generationLimit=rateLimit({windowMs:60*60*1000,limit:5,standardHeaders:true,legacyHeaders:false,message:{error:{code:'RATE_LIMIT_EXCEEDED',message:'You have opened several cases. Please try again later.'}}});
+const actionLimit=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:true,legacyHeaders:false});
+router.post('/',generationLimit,asyncRoute(controller.generate));
+router.get('/:caseId',actionLimit,asyncRoute(controller.get));
+router.get('/:caseId/evidence/:evidenceId/image',actionLimit,asyncRoute(controller.evidenceImage));
+router.post('/:caseId/accusations',actionLimit,asyncRoute(controller.accusation));
+router.get('/:caseId/result',actionLimit,asyncRoute(controller.result));
+export default router;
