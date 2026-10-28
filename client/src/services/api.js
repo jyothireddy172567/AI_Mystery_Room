@@ -1,10 +1,20 @@
+const DEFAULT_REMOTE_API = 'https://ai-mystery-room-nxc3.onrender.com/api/v1';
+
 export function getApiBase(envUrl = import.meta.env.VITE_API_URL) {
   const trimmed = (envUrl || '').trim();
-  if (!trimmed) {
-    return '/api/v1';
+  if (trimmed) {
+    const clean = trimmed.replace(/\/+$/, '');
+    return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
   }
-  const clean = trimmed.replace(/\/+$/, '');
-  return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
+  // When running on Vercel or in production, default to the Render backend URL
+  // so requests are never sent to Vercel's static server.
+  if (typeof window !== 'undefined' && window.location.hostname && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    return DEFAULT_REMOTE_API;
+  }
+  if (import.meta.env.PROD) {
+    return DEFAULT_REMOTE_API;
+  }
+  return '/api/v1';
 }
 
 export const API_BASE = getApiBase();
