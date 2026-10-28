@@ -8,6 +8,7 @@ vi.mock('../../services/api.js', () => ({
   getMystery: vi.fn(),
   getResult: vi.fn(),
   submitAccusation: vi.fn(),
+  resolveAssetUrl: (url) => url,
 }));
 
 const caseData = {

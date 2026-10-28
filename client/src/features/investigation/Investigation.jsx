@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowUpRight, Check, Clock3, FileText, Image as ImageIcon,
   LoaderCircle, MessageSquareText, ScanSearch, ShieldAlert, Video, UserRound,
 } from 'lucide-react';
-import { getMystery, getResult, submitAccusation } from '../../services/api.js';
+import { getMystery, getResult, submitAccusation, resolveAssetUrl } from '../../services/api.js';
 
 const icons = { chat: MessageSquareText, image: ImageIcon, cctv: Video, witness: FileText, physical: ScanSearch, timeline: Clock3 };
 
@@ -116,7 +116,7 @@ export default function Investigation() {
       <section className="evidence-panel"><div className="panel-heading"><div><p className="eyebrow">THE EVIDENCE ROOM</p><h2>Exhibits</h2></div><span>{evidence.length.toString().padStart(2, '0')} ITEMS</span></div>
         <div className="evidence-tabs" role="tablist" aria-label="Case exhibits">{evidence.map((entry, index) => { const TabIcon = icons[entry.type] || FileText; return <button role="tab" aria-selected={active === index} key={entry.id} onClick={() => setActive(index)}><TabIcon size={15}/><span>{String(index + 1).padStart(2, '0')}</span></button>; })}</div>
         {item && <article className="exhibit-detail"><div className={`exhibit-visual visual-${item.type}`}>
-          {imageReady ? <img className="evidence-generated-image" src={item.assetUrl} alt={`${item.title}: ${item.description}`} loading="lazy" onError={() => setFailedImageKey(imageKey)}/> : <>
+          {imageReady ? <img className="evidence-generated-image" crossOrigin="use-credentials" src={resolveAssetUrl(item.assetUrl)} alt={`${item.title}: ${item.description}`} loading="lazy" onError={() => setFailedImageKey(imageKey)}/> : <>
             <div className="visual-grid"/><Icon className="visual-icon" size={38}/>
             <span className="visual-type">{item.type === 'cctv' ? 'TRANSCRIPT · FICTIONAL' : item.type === 'image' ? (failedImageKey === imageKey ? 'ILLUSTRATIVE PLACEHOLDER · IMAGE COULD NOT LOAD' : item.assetStatus === 'failed' ? 'ILLUSTRATIVE PLACEHOLDER · IMAGE UNAVAILABLE' : 'ILLUSTRATIVE PLACEHOLDER') : item.type.toUpperCase()}</span>
           </>}

@@ -23,3 +23,5 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: CLIENT_ORIGIN
+        value: https://ai-mystery-room-6ihb.vercel.app

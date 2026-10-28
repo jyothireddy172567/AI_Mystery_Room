@@ -50,3 +50,19 @@ test('case image API returns stored image bytes only to the owning session',asyn
     await new Promise(resolve=>server.close(resolve));
   }
 });
+
+test('allows cross-origin requests from Vercel frontend with credentials and cross-origin resource policy',async()=>{
+  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+  try{
+    const base=`http://127.0.0.1:${server.address().port}/api/v1`;
+    const res=await fetch(`${base}/health`,{
+      headers:{origin:'https://ai-mystery-room-6ihb.vercel.app'},
+    });
+    assert.equal(res.status,200);
+    assert.equal(res.headers.get('access-control-allow-origin'),'https://ai-mystery-room-6ihb.vercel.app');
+    assert.equal(res.headers.get('access-control-allow-credentials'),'true');
+    assert.equal(res.headers.get('cross-origin-resource-policy'),'cross-origin');
+  }finally{
+    await new Promise(resolve=>server.close(resolve));
+  }
+});
