@@ -7,25 +7,45 @@ import { AppError } from '../utils/errors.js';
 export async function generateMystery(input){
   if(!env.geminiApiKey)throw new AppError(503,'AI_PROVIDER_ERROR','Mystery generation is not configured yet. Add a Gemini API key to the server environment.');
   const ai=new GoogleGenAI({apiKey:env.geminiApiKey});let lastFailure='invalid_output';
+  const candidateModels = [
+    env.geminiModel,
+    ...(env.geminiModel !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : [])
+  ].filter(Boolean);
+
   for(let attempt=0;attempt<2;attempt++){
     const prompt=buildPrompt(input)+(attempt?'\nCorrect the previous output so it strictly follows the required schema and references. Return JSON only.':'');
     let response; let providerError;
-    const config={responseMimeType:'application/json'};
-    if(!env.geminiModel.startsWith('gemini-3.'))config.temperature=0.8;
-    // Provider 503s and transient connection failures should not immediately
-    // fail the user's request. Keep this retry bounded to one extra call.
-    for(let providerAttempt=0;providerAttempt<2;providerAttempt++){
-      try{
-        response=await ai.models.generateContent({model:env.geminiModel,contents:prompt,config});
+
+    for (const model of candidateModels) {
+      const config={responseMimeType:'application/json'};
+      if(!model.startsWith('gemini-3.'))config.temperature=0.8;
+
+      for(let providerAttempt=0;providerAttempt<2;providerAttempt++){
+        try{
+          response=await ai.models.generateContent({model,contents:prompt,config});
+          providerError=undefined;
+          break;
+        }catch(error){
+          providerError=error;
+          const providerStatus=Number(error?.status||error?.statusCode);
+          const transient=!Number.isInteger(providerStatus)||providerStatus===408||providerStatus===429||providerStatus>=500;
+          console.warn(JSON.stringify({
+            level:'warn',
+            event:'gemini_request_failed',
+            model,
+            attempt:attempt+1,
+            providerAttempt:providerAttempt+1,
+            providerStatus:Number.isInteger(providerStatus)?providerStatus:undefined,
+            providerMessage:error?.message?String(error.message).slice(0,200):undefined,
+            errorType:error?.name||'Error'
+          }));
+          if(!transient||providerAttempt===1)break;
+          await new Promise(resolve=>setTimeout(resolve,500));
+        }
+      }
+      if(response){
         providerError=undefined;
         break;
-      }catch(error){
-        providerError=error;
-        const providerStatus=Number(error?.status||error?.statusCode);
-        const transient=!Number.isInteger(providerStatus)||providerStatus===408||providerStatus===429||providerStatus>=500;
-        console.warn(JSON.stringify({level:'warn',event:'gemini_request_failed',attempt:attempt+1,providerAttempt:providerAttempt+1,providerStatus:Number.isInteger(providerStatus)?providerStatus:undefined,errorType:error?.name||'Error'}));
-        if(!transient||providerAttempt===1)break;
-        await new Promise(resolve=>setTimeout(resolve,500));
       }
     }
     if(providerError){

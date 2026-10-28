@@ -25,3 +25,5 @@ services:
         generateValue: true
       - key: CLIENT_ORIGIN
         value: https://ai-mystery-room-6ihb.vercel.app
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
