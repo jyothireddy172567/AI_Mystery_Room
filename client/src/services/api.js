@@ -61,7 +61,15 @@ export async function request(path, options = {}) {
     if (import.meta.env.DEV) {
       console.error(`[API Error ${response.status}] ${options.method || 'GET'} ${fullUrl}:`, data);
     }
-    throw new ApiError(data?.error?.message || `The request failed (${response.status}). Please try again.`, {
+    let message = data?.error?.message;
+    if (!message) {
+      if (response.status === 502 || response.status === 503 || response.status === 504) {
+        message = 'The server is currently starting up or experiencing high traffic. Please wait a few seconds and try again.';
+      } else {
+        message = `The request failed (${response.status}). Please try again.`;
+      }
+    }
+    throw new ApiError(message, {
       code: data?.error?.code || 'API_ERROR', status: response.status, requestId: data?.error?.requestId,
     });
   }
