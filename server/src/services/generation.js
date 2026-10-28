@@ -9,14 +9,26 @@ export async function generateMystery(input){
   const ai=new GoogleGenAI({apiKey:env.geminiApiKey});let lastFailure='invalid_output';
   for(let attempt=0;attempt<2;attempt++){
     const prompt=buildPrompt(input)+(attempt?'\nCorrect the previous output so it strictly follows the required schema and references. Return JSON only.':'');
-    let response;
-    try{
-      const config={responseMimeType:'application/json'};
-      if(!env.geminiModel.startsWith('gemini-3.'))config.temperature=0.8;
-      response=await ai.models.generateContent({model:env.geminiModel,contents:prompt,config});
-    }catch(error){
-      const providerStatus=Number(error?.status||error?.statusCode);
-      console.warn(JSON.stringify({level:'warn',event:'gemini_request_failed',attempt:attempt+1,providerStatus:Number.isInteger(providerStatus)?providerStatus:undefined,errorType:error?.name||'Error'}));
+    let response; let providerError;
+    const config={responseMimeType:'application/json'};
+    if(!env.geminiModel.startsWith('gemini-3.'))config.temperature=0.8;
+    // Provider 503s and transient connection failures should not immediately
+    // fail the user's request. Keep this retry bounded to one extra call.
+    for(let providerAttempt=0;providerAttempt<2;providerAttempt++){
+      try{
+        response=await ai.models.generateContent({model:env.geminiModel,contents:prompt,config});
+        providerError=undefined;
+        break;
+      }catch(error){
+        providerError=error;
+        const providerStatus=Number(error?.status||error?.statusCode);
+        const transient=!Number.isInteger(providerStatus)||providerStatus===408||providerStatus===429||providerStatus>=500;
+        console.warn(JSON.stringify({level:'warn',event:'gemini_request_failed',attempt:attempt+1,providerAttempt:providerAttempt+1,providerStatus:Number.isInteger(providerStatus)?providerStatus:undefined,errorType:error?.name||'Error'}));
+        if(!transient||providerAttempt===1)break;
+        await new Promise(resolve=>setTimeout(resolve,500));
+      }
+    }
+    if(providerError){
       throw new AppError(503,'AI_PROVIDER_ERROR','Gemini could not generate the case. Check the configured model, API key permissions, quota, and network, then try again.');
     }
     const text=response.text;
